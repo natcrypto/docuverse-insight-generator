@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, File, Loader2 } from "lucide-react";
@@ -79,28 +78,12 @@ export const FileUpload = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      // Get a fresh token for the request
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Authentication required');
+      // Call the edge function to process the document using supabase.functions.invoke
+      const { data, error } = await supabase.functions.invoke('process-document', {
+        body: formData,
+      });
 
-      // Call the edge function to process the document
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-document`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to upload document');
-      }
-
-      const data = await response.json();
+      if (error) throw error;
 
       toast({
         title: "Document uploaded successfully",
