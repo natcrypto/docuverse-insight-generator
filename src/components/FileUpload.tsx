@@ -79,15 +79,28 @@ export const FileUpload = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      // Call the edge function to process the document
-      const { data, error } = await supabase.functions.invoke('process-document', {
-        body: formData,
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      // Get a fresh token for the request
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Authentication required');
 
-      if (error) throw error;
+      // Call the edge function to process the document
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-document`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload document');
+      }
+
+      const data = await response.json();
 
       toast({
         title: "Document uploaded successfully",
