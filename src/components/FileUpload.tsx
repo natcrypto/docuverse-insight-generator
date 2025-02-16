@@ -1,14 +1,34 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, File, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 export const FileUpload = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    setIsAuthenticated(!!session);
+    if (!session) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to upload documents",
+        variant: "destructive",
+      });
+      navigate("/auth");
+    }
+  };
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -39,16 +59,22 @@ export const FileUpload = () => {
   const handleFiles = async (files: File[]) => {
     if (files.length === 0) return;
 
+    // Check authentication again before upload
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Session expired",
+        description: "Please sign in again to upload documents",
+        variant: "destructive",
+      });
+      navigate("/auth");
+      return;
+    }
+
     setIsUploading(true);
     const file = files[0]; // Handle one file at a time
 
     try {
-      // Get the session to ensure user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('You must be logged in to upload documents');
-      }
-
       // Prepare form data for the edge function
       const formData = new FormData();
       formData.append('file', file);
@@ -80,6 +106,10 @@ export const FileUpload = () => {
     }
   };
 
+  if (isAuthenticated === false) {
+    return null; // Don't render anything if not authenticated
+  }
+
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <div
@@ -107,7 +137,6 @@ export const FileUpload = () => {
           </p>
           <input
             type="file"
-            multiple
             onChange={handleFileInput}
             className="hidden"
             id="file-input"
