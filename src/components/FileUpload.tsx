@@ -57,7 +57,7 @@ export const FileUpload = () => {
       const { data, error } = await supabase.functions.invoke('process-document', {
         body: formData,
         headers: {
-          'x-user-id': session.user.id,
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
